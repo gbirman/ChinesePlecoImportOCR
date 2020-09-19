@@ -134,6 +134,7 @@ dmypy.json
 *.npy 
 Images/
 *.png
+*.txt
 
 # Mac
 *.DS_store
