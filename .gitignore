@@ -131,4 +131,5 @@ dmypy.json
 # PDF
 *.pdf
 
+# Mac
 *.DS_store

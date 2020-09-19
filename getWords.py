@@ -35,6 +35,17 @@ def resize(bbox, sf, pad):
         pad = 4*[pad]
     return (sf*(bbox[0]-pad[0]), sf*(bbox[1]-pad[1]), sf*(bbox[2]+pad[2]), sf*(bbox[3]+pad[3]))
 
+# saves an block image given a bbox 
+def saveBlock(block, name):
+    import os
+    pg_num = get_page_num(block)
+    bbox = block[1]
+    bbox_resize = resize(bbox, sf, eps)
+    pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
+    img = Image.open(io.BytesIO(pix.getPNGData()))
+    block_img = img.crop(bbox_resize)
+    block_img.save(os.path.expanduser(name),dpi=(96,96))
+
 
 # TODO: type checking for the helper functions (but also don't be silly!)
 
@@ -43,7 +54,7 @@ def get_page_num(block_list, entry):
     if type(entry) is int:
         return block_list[entry][0]
     else: # regular block 
-        return block_list[entry[0][0][0]][0]
+        return block_list[entry[0][0]][0]
 
 # get page number from box id or box object
 # TODO: type checking (but also don't be silly!)
@@ -76,9 +87,13 @@ def groupBlocks(bboxs, prevblock, pg_num):
     blocks = [(bbox[0], bbox[1], cluster) for bbox, cluster in zip(bboxs, clusters)]
     blocks.sort(key=lambda block: (block[1][1]+block[1][3])/2 + (1e5 if block[1][0] > centroids[2] else 0)) # sort in vertical direction
 
-    # format of a block:
-    # list of bid list --> each bid list contains bids corresponding to the equivalent index bbox
+    # format of a blocking:
+    # list of bid lists --> each bid list contains bids corresponding to the equivalent index bbox
     # list of bbox ---> each bbox is 4-tuple containing sides of rectangle
+
+    # format of a block 
+    # bid list 
+    # bbox 
 
     left_blocks = [] # items on left side
     right_blocks = [] # items on right side
@@ -86,19 +101,8 @@ def groupBlocks(bboxs, prevblock, pg_num):
     left_block = []
     right_block = []
     insertblock = None
-    for i, block in enumerate(blocks):
+    for block in blocks:
         bid, bbox, cluster = block
-
-        import os
-        bbox_resize = resize(bbox, sf, eps)
-        pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
-        img = Image.open(io.BytesIO(pix.getPNGData()))
-        block_img = img.crop(bbox_resize)
-        block_img.save(os.path.expanduser("~/Desktop/test/" + str(bid) + ".png"),dpi=(96,96))
-
-        # if bid < 86 or bid > 89:
-        #     continue
-        # print(block)
         if cluster == 0: # start of phrase (left side)
             if prevblock:
                 insertblock = prevblock
@@ -118,8 +122,6 @@ def groupBlocks(bboxs, prevblock, pg_num):
             left_block[0][0].append(bid)
             left_block[1][0] = union(left_block[1][0], bbox)
         elif cluster == 3: # start of phrase (right side) 
-            print('3 right block', right_block)
-            print('3 left block', right_block)
             if right_block:
                 right_blocks.append(right_block)
             elif left_block:
@@ -127,8 +129,6 @@ def groupBlocks(bboxs, prevblock, pg_num):
                 left_block = None
             right_block = [[[block[0]]], [block[1]]]
         elif cluster == 4: # continuation of phrase (right side)
-            print('4 right block', right_block)
-            print('4 left block', left_block)
             if right_block:   
                 right_block[0][0].append(bid)
                 right_block[1][0] = union(right_block[1][0], bbox)
@@ -140,28 +140,8 @@ def groupBlocks(bboxs, prevblock, pg_num):
                 split_blocks.append(split_block)
                 left_block = None
 
-    quit()
-    import os
-    # print(right_block)
-    bbox = right_block[1][0]
-    # bbox = (317.7699890136719, 666.5438232421875, 481.1455993652344, 681.242431640625)
-    pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
-    img = Image.open(io.BytesIO(pix.getPNGData()))
-    block_img = img.crop(bbox)
-    block_img.save(os.path.expanduser("~/Desktop/test.png"),dpi=(96,96))
-    quit()
-
-    print('qwoieu', left_block)
-    print('weohoiwehr', right_block)
-    # print(left_blocks)
-    # print(right_blocks)
-    # print(split_blocks)
-
     # make sure we terminate with the last item on either side
     lastblock = right_block if right_block else left_block
-
-    print(lastblock)
-
     return left_blocks + right_blocks, split_blocks, lastblock, insertblock
 
 def getBlocks(pages, letter_list_cache):
@@ -199,13 +179,13 @@ def getBlocks(pages, letter_list_cache):
 
         # last block from previous page (no spillover)
         if insertblock:
-            standard_blocks.append([insertblock])
+            standard_blocks.append(insertblock)
 
         standard_blocks.extend(standard)
         split_blocks.extend(split)
     
     # clean up 
-    standard.append([prevblock]) # add the last item 
+    standard.append(prevblock) # add the last item 
     standard_blocks.extend(standard)
     split_blocks.extend(split)
 
@@ -286,8 +266,6 @@ def refine(chars, char_confs, chi_pinyin, eng_pinyin, bid, letter_list):
         return None
 
     # try for all heteronym combinations
-    # x = pypinyin.pinyin('堡',heteronym=True)
-    # print(chars, char_confs, chi_pinyin, eng_pinyin)
     # make sure lettering order is preserved 
     ordered = True
     to_pinyin = extract(chars)
@@ -339,14 +317,15 @@ if __name__ == "__main__":
     eps = 1
     offset = 18
     pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
-    letter_list_cache = True
+    letter_list_cache = True # cache the bid to start of each new letter
 
 
     standard_blocks, split_blocks, block_list, letter_list = getBlocks(pagenums, letter_list_cache)
-    # letter_list = list(zip(*letter_list))
 
     if letter_list_cache:
         letter_list = [(1, 20, 156, 293, 487, 492, 585, 758, 866, 1059, 1122, 1215, 1298, 1355, 1358, 1412, 1502, 1561, 1792, 1919, 1988, 2130, 2315), ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'w', 'x', 'y', 'z')]
+    else: 
+        letter_list = list(zip(*letter_list))
 
     manual_blocks = []
     pg_cache = {}
@@ -355,18 +334,6 @@ if __name__ == "__main__":
     chi_detector = PyTessBaseAPI(psm=7, lang="chi_sim")
     eng_detector_multi = PyTessBaseAPI(psm=3, lang="eng")
     eng_detector = PyTessBaseAPI(psm=7, lang="eng")
-
-    # # # print(standard_blocks[0])
-    # for blocking in split_blocks:
-    #     bid_superlist = blocking[0]
-    #     bbox_list = blocking[1]
-    #     for block in zip(*blocking):
-    #         print(block)
-    #         quit()
-    #         # print(block)
-    #         # print(block_list[block[0]])
-    #         # print(get_text(block_list, block))
-    # quit()
         
     total_count = missed_count = 0
     for blocking in chain(split_blocks, standard_blocks):

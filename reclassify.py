@@ -36,28 +36,11 @@ if __name__=='__main__':
     quit()
 
     # update incorrectly detected blocks manually
-    for blocking in manual_blocks:
+    for i, blocking in enumerate(manual_blocks):
         iterator = zip(*blocking) if len(blocking) > 1 else blocking
         print(list_iterator)
-        for block in iterator:
-            bids, bbox = block
-
-            if type(bids) is int: # for split block 
-                bids = [bids]
-            bbox = resize(bbox, sf, [eps,0,eps,0])
-            pg_num = get_page_num(block_list, bids)
-            print(block)
-            # print(block_list[765])
-
-            img = pg_cache[pg_num]
-            
-            pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
-            img = Image.open(io.BytesIO(pix.getPNGData()))
-            # pg_cache[pg_num] = img
-
-            block_img = img.crop(bbox)
-            block_img.save(os.path.expanduser("~/Desktop/asd.png"),dpi=(96,96))
-            quit()
+        for block in zip(*blocking):
+            saveBlock(block, "~/test/")
         print('********')
         quit()
 
