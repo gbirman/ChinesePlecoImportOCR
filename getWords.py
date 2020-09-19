@@ -14,6 +14,22 @@ import bisect
 import unidecode
 from string import ascii_uppercase
 
+filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
+doc = fitz.open(filename)
+
+# get chapter references 
+table_of_contents_pages = [5,6,7]
+ref_start = 5
+num_chapters = 48
+#################
+
+sf = 25/6
+eps = 1
+offset = 18
+pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
+letter_list_cache = True # cache the bid to start of each new letter
+
+
 # get total bounding box r1 U r2 
 # assumes bbox has form (x0, y0, x1, y1)
 def union(r1, r2):
@@ -36,15 +52,16 @@ def resize(bbox, sf, pad):
     return (sf*(bbox[0]-pad[0]), sf*(bbox[1]-pad[1]), sf*(bbox[2]+pad[2]), sf*(bbox[3]+pad[3]))
 
 # saves an block image given a bbox 
-def saveBlock(block, name):
-    import os
-    pg_num = get_page_num(block)
+def getImg(block, block_list):
+    pg_num = get_page_num(block_list, block)
     bbox = block[1]
     bbox_resize = resize(bbox, sf, eps)
     pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
     img = Image.open(io.BytesIO(pix.getPNGData()))
     block_img = img.crop(bbox_resize)
-    block_img.save(os.path.expanduser(name),dpi=(96,96))
+    return block_img
+    # import os
+    # block_img.save(os.path.expanduser(name),dpi=(96,96))
 
 
 # TODO: type checking for the helper functions (but also don't be silly!)
@@ -304,20 +321,20 @@ def refine(chars, char_confs, chi_pinyin, eng_pinyin, bid, letter_list):
     return None
 
 if __name__ == "__main__":
-    filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
-    doc = fitz.open(filename)
+    # filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
+    # doc = fitz.open(filename)
 
-    # get chapter references 
-    table_of_contents_pages = [5,6,7]
-    ref_start = 5
-    num_chapters = 48
-    #################
+    # # get chapter references 
+    # table_of_contents_pages = [5,6,7]
+    # ref_start = 5
+    # num_chapters = 48
+    # #################
 
-    sf = 25/6
-    eps = 1
-    offset = 18
-    pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
-    letter_list_cache = True # cache the bid to start of each new letter
+    # sf = 25/6
+    # eps = 1
+    # offset = 18
+    # pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
+    # letter_list_cache = True # cache the bid to start of each new letter
 
 
     standard_blocks, split_blocks, block_list, letter_list = getBlocks(pagenums, letter_list_cache)
