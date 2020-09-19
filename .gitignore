@@ -130,3 +130,5 @@ dmypy.json
 
 # PDF
 *.pdf
+
+*.DS_store

@@ -3,42 +3,83 @@ from tkinter import *
 import numpy as np 
 from collections import OrderedDict
 from getWords import *
+import os
 
-# retrieve data 
-manual_blocks = np.load('manual_blocks.npy', allow_pickle=True)[()]
-lesson2word = np.load('lesson2word.npy', allow_pickle=True)[()]
-block_list = np.load('block_list.npy', allow_pickle=True)[()]
-split_blocks = np.load('split_blocks.npy', allow_pickle=True)[()]
+if __name__=='__main__':
+    # retrieve data 
+    manual_blocks = np.load('manual_blocks.npy', allow_pickle=True)[()]
+    lesson2word = np.load('lesson2word.npy', allow_pickle=True)[()]
+    block_list = np.load('block_list.npy', allow_pickle=True)[()]
+    split_blocks = np.load('split_blocks.npy', allow_pickle=True)[()]
+    pg_cache = np.load('pg_cache.npy', allow_pickle=True)[()]
 
-print(split_blocks[0])
-quit()
+    # import from other module
+    filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
+    doc = fitz.open(filename)
+    sf = 25/6
+    eps = 1
 
-# 
-for blocking in manual_blocks:
+    # pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
+    # img = Image.open(io.BytesIO(pix.getPNGData()))
+    # pg_cache[pg_num] = img
+    # block_img = img.crop(bbox)
+    # block_img.save("asd.png",dpi=(96,96))
+
+    split_block = split_blocks[2]
+    split_block[0] = [[split_block[0][0], split_block[0][1]], split_block[0][2]]
+    
+    blocking = split_blocks[2]
     iterator = zip(*blocking) if len(blocking) > 1 else blocking
-    for block in iterator:
-        bids, bbox = block
-        print(bids, bbox)
+    print(manual_blocks[0])
+    quit()
+    print(list(iterator))
+    quit()
 
+    # update incorrectly detected blocks manually
+    for blocking in manual_blocks:
+        iterator = zip(*blocking) if len(blocking) > 1 else blocking
+        print(list_iterator)
+        for block in iterator:
+            bids, bbox = block
 
-# print(manual_blocks[0])
-# print(block_list[11])
-# print(get_page_num(block_list, manual_blocks[0][0]))
+            if type(bids) is int: # for split block 
+                bids = [bids]
+            bbox = resize(bbox, sf, [eps,0,eps,0])
+            pg_num = get_page_num(block_list, bids)
+            print(block)
+            # print(block_list[765])
 
-# sort keys 
-lesson2word = OrderedDict(sorted(lesson2word.items())) 
+            img = pg_cache[pg_num]
+            
+            pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
+            img = Image.open(io.BytesIO(pix.getPNGData()))
+            # pg_cache[pg_num] = img
 
-# print(len(lesson2word[1]))
-# print(np.unique(lesson2word[1]))
+            block_img = img.crop(bbox)
+            block_img.save(os.path.expanduser("~/Desktop/asd.png"),dpi=(96,96))
+            quit()
+        print('********')
+        quit()
 
-# # iterate through key-value pairs 
-# for k, v in lesson2word.items():
-#     print(k)
+    # print(manual_blocks[0])
+    # print(block_list[11])
+    # print(get_page_num(block_list, manual_blocks[0][0]))
 
-# with open('flashcards.txt', 'a') as wfile:
-#     for lesson, words in lesson2word:
-#         wfile.write(f'\n//Lesson {lesson}\n')
-#         for word in words:
-#             wfile.write(f'{word}\n')
+    # sort keys 
+    lesson2word = OrderedDict(sorted(lesson2word.items())) 
+
+    # print(len(lesson2word[1]))
+    # print(np.unique(lesson2word[1]))
+
+    # # iterate through key-value pairs 
+    # for k, v in lesson2word.items():
+    #     print(k)
+
+    # with open('flashcards.txt', 'a') as wfile:
+    #     for lesson, words in lesson2word:
+    #         wfile.write(f'\n//Lesson {lesson}\n')
+    #         for word in words:
+    #             wfile.write(f'{word}\n')
+
 
 
