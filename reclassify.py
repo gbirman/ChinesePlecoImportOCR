@@ -14,36 +14,12 @@ if __name__=='__main__':
     block_list = np.load('block_list.npy', allow_pickle=True)[()]
     split_blocks = np.load('split_blocks.npy', allow_pickle=True)[()]
     pg_cache = np.load('pg_cache.npy', allow_pickle=True)[()]
-
-    # # import from other module
-    # filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
-    # doc = fitz.open(filename)
-    # sf = 25/6
-    # eps = 1
-
-    # pix = doc[pg_num].getPixmap(matrix = fitz.Matrix(sf,sf))
-    # img = Image.open(io.BytesIO(pix.getPNGData()))
-    # pg_cache[pg_num] = img
-    # block_img = img.crop(bbox)
-    # block_img.save("asd.png",dpi=(96,96))
-
-    # split_block = split_blocks[2]
-    # split_block[0] = [[split_block[0][0], split_block[0][1]], split_block[0][2]]
     
-    # blocking = split_blocks[2]
-    # iterator = zip(*blocking) if len(blocking) > 1 else blocking
-    # print(manual_blocks[0])
-    # quit()
-    # print(list(iterator))
-    # quit()
-
-    # update incorrectly detected blocks manually
     if os.path.exists("imgcache.npy"):
         imgcache = np.load('imgcache.npy', allow_pickle=True)[()]
     else: 
         imgcache = []
         for i, blocking in enumerate(manual_blocks):
-            print(i)
             for block in zip(*blocking):
                 img = getImg(block, block_list)
                 imgByteArr = io.BytesIO()
@@ -64,8 +40,11 @@ if __name__=='__main__':
     window = sg.Window('Window', layout)
     sg.theme('DarkAmber')   # Add a touch of color
 
-    
-    saved = []
+
+    if os.path.exists("saved.npy"):
+        saved = np.load('saved.npy', allow_pickle=True)[()]
+    else:
+        saved = defaultdict(tuple)
 
     # Event Loop to process "events" and get the "values" of the inputs
     i = 0
@@ -82,6 +61,9 @@ if __name__=='__main__':
             text = values['_TEXT_']
             if values['_LESSON_'].isnumeric():
                 lesson = int(values['_LESSON_'])
+                saved[i] = (lesson, text)
+                with open('saved.npy', 'wb') as f:
+                    np.save(f, saved)
             else:
                 continue
             print(f'{lesson}: {text}')
