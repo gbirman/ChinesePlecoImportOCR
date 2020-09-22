@@ -129,4 +129,16 @@ dmypy.json
 .pyre/
 
 # PDF
+<<<<<<< HEAD
 *.pdf
+=======
+*.pdf
+
+*.npy 
+Images/
+*.png
+*.txt
+
+# Mac
+*.DS_store
+>>>>>>> dev
