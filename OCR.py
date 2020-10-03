@@ -14,21 +14,6 @@ import bisect
 import unidecode
 from string import ascii_uppercase
 
-filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf"
-doc = fitz.open(filename)
-
-# get chapter references 
-table_of_contents_pages = [5,6,7]
-ref_start = 5
-num_chapters = 48
-#################
-
-sf = 25/6
-eps = 1
-offset = 18
-pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
-letters_cache = True # cache the bid to start of each new letter
-
 # get total bounding box r1 U r2 
 # assumes bbox has form (x0, y0, x1, y1)
 def union(r1, r2):
@@ -54,18 +39,6 @@ def getImg(pg_num, bbox):
     block_img = img.crop(bbox_resize)
     return block_img
 
-# TODO:
-# - create GUI  
-# - improve character recognition using multiple OCR + vocab tools
-# - one pass OCR
-# - modularize code 
-# - get lesson and page through tesseract 
-# - create index links word to page
-# - create OCR layer in index
-# - OCR on entire textbook 
-# - Lesson verification: lesson maps to page range from table of contents
-# - get lesson/page number on next page if there is a break 
-
 def test_word_format(word):
     assert('wid' in word)
     assert('groups' in word)
@@ -87,29 +60,6 @@ def test_word_format(word):
         assert(type(text) is str)
         assert(len(bids) >= 1)
         assert(len(bbox) == 4)
-
-# format of a block:
-# bid 
-# bbox 
-# cluster 
-
-# format of a word (essentially multiple groups)
-# list of bid lists --> each bid list contains bids corresponding to the equivalent index bbox
-# list of bbox ---> each bbox is 4-tuple containing sides of rectangle
-
-# format of a group:
-# group id
-# bid list 
-# bbox 
-
-bid = 0
-block_dict = {}
-def add_block(block):
-    global bid 
-    global block_dict
-    assert('bid' not in block)
-    block['bid'] = bid
-
 
 # add a new word to a list of words 
 wid = 0
@@ -133,8 +83,9 @@ def add_group(word, group):
     gid += 1
     return word
 
+# add a new block to a group
+# NOTE: bid not global because it's updated in getWords
 def add_block(group, block):
-    global bid
     bid, bbox, pg, text = block['bid'], block['bbox'], block['pg'], block['text']
     # use the last group if there are multiple
     if type(group) is list:
@@ -332,15 +283,17 @@ def refine(chars, char_confs, chi_pinyin, eng_pinyin, bid, letters):
          ordered = False
         
     # valid if all characters greater than threshold
-    thresh = 60
+    # higher threshold means lower change of failure 
+    # lower threshold means less correction to do manually
+    thresh = 60 # determined by visual inspection 
     if np.all(np.array(char_confs) > thresh):
         return chars if ordered else None
 
-    # assume a pinyin match is a high enough probability real match
+    # assume a pinyin match is a high enough probability for match
     if to_pinyin == chi_pinyin or to_pinyin == eng_pinyin:
         return chars if ordered else None
 
-    # small alterations
+    # try modifying text
     if len(chars) > 1:  
         # try removing first character
         to_pinyin = extract(chars[1:])
@@ -358,31 +311,58 @@ def refine(chars, char_confs, chi_pinyin, eng_pinyin, bid, letters):
             if to_pinyin == chi_pinyin or to_pinyin == eng_pinyin:
                 return chars[1:-1] if to_pinyin[0] == letter else None
     
-    return None
+    return None # unsuccessful :( 
 
 if __name__ == "__main__":
 
+    ### CONSTANTS
+    filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf" # pdf filename
+    sf = 25/6 # scaling factor between PDF and image
+    eps = 1 # adds to bounding box around word
+    offset = 18 # represents page num offset (i.e. page number in PDF is index + offset)
+    pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
+    letters_cache = True # cache the bid to start of each new letter (for custom heuristic)
+
+    doc = fitz.open(filename) # open PDF
+
+    # NOTE: PIPELINE 
+    # Parsing: parse pdf into word objects with useful metadata, e.g. bounding boxes, page number etc.
+    # Visualization: iterate over words and visualize text
+    # OCR: perform OCR on text using a multiple detectors
+    # Refinement: use custom heuristics to aggregate OCR output
+    # Classification: determine if text can be classified with high enough probability
+    # Assignment: assign to successful or unsuccessful buckets and save info 
+    # Custom Assignment: unsuccessful words will be manually assigned using a GUI
+    # Finalization: All assigned words (plus custom modifications) are included as flashcards in a text file
+    # Data Import: Flashcard text file is imported into Pleco App
+    
+    # get object representations of words (see below for representations)
     standard_words, split_words, letters = getWords(pagenums, letters_cache)
 
+    # use the precalculated values for faster performance (on my file)
     if letters_cache:
         letters = {'bid': [1, 20, 156, 293, 487, 492, 585, 758, 866, 1059, 1122, 1215, 1298, 1355, 1358, 1412, 1502, 1561, 1792, 1919, 1988, 2130, 2315], 'letters': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'w', 'x', 'y', 'z']}
 
-    manual_words = []
-    success_words = []
-    pg_cache = {}
-    lesson2word = OrderedDict()
+    manual_words = [] # words that will need to be determined manually
+    success_words = [] # words that are very likely to be successes
+    pg_cache = {} # maps page num to image representation
+    lesson2word = OrderedDict() # maps lesson to words in that lesson
+    # OCR detectors (multiline vs. singleline, english vs. chinese)
     chi_detector_multi = PyTessBaseAPI(psm=3, lang="chi_sim")
     chi_detector = PyTessBaseAPI(psm=7, lang="chi_sim")
     eng_detector_multi = PyTessBaseAPI(psm=3, lang="eng")
     eng_detector = PyTessBaseAPI(psm=7, lang="eng")
         
     total_count = missed_count = 0
+    # iterate over identified words 
     for word in chain(split_words, standard_words):
         wid = word['wid']
         total_count += 1
         chi_map, eng_map = [], []
-        for group in word['groups']: # convert to [bidlist, bbox]
+        # get all bboxs associated with text
+        for group in word['groups']: 
             bids, bbox, pg_num = group['bid'], group['bbox'], group['pg']
+            # obtain image of bbox 
             bbox = resize(bbox, sf, [eps,0,eps,0])
             if pg_num in pg_cache:
                 img = pg_cache[pg_num]
@@ -391,17 +371,19 @@ if __name__ == "__main__":
                 img = Image.open(io.BytesIO(pix.getPNGData()))
                 pg_cache[pg_num] = img
             block_img = img.crop(bbox)
+            # perform OCR on bbox 
             if len(bids) == 1: # single line 
                 chi_map.extend(classify(block_img, chi_detector))
                 eng_map.extend(classify(block_img, eng_detector))
             else: # multi-line 
                 chi_map.extend(classify(block_img, chi_detector_multi))
                 eng_map.extend(classify(block_img, eng_detector_multi))
+        # use custom heuristics to obtain text (if high enough probability)
         chi_pinyin, chars, char_confs = getChinese(chi_map)
         eng_pinyin, nums = getEnglish(eng_map)
         guess = refine(chars, char_confs, chi_pinyin, eng_pinyin, bids[0], letters)
-        # print(word, chars, char_confs, chi_pinyin, eng_pinyin, bids)
-        if guess and nums:
+        # add text to successful/unsuccessful arrays accordingly 
+        if guess and nums: # if word is valid and page num is valid
             lesson, pg_dest = nums
             if lesson in lesson2word:
                 lesson2word[lesson].append(guess)
@@ -416,9 +398,28 @@ if __name__ == "__main__":
 
     print(f'Unable to classify {missed_count}/{total_count} ({round(missed_count/total_count,2)*100}%)')
 
-    # quit() # safety precaution
+    # save files 
+    # quit() # safety precaution if need be
     np.save("success_words", success_words)
     np.save("manual_words", manual_words)
     np.save("lesson2word", lesson2word)
     np.save("split_words", split_words)
     np.save("pg_cache", pg_cache)
+
+
+# format of a block:
+# bid 
+# bbox 
+# pg 
+# text
+# cluster  
+
+# format of a group:
+# gid
+# list of bids
+# bbox 
+# text
+# pg
+
+# format of a word:
+# list of groups
