@@ -416,6 +416,7 @@ if __name__ == "__main__":
 
     print(f'Unable to classify {missed_count}/{total_count} ({round(missed_count/total_count,2)*100}%)')
 
+    # save files 
     # quit() # safety precaution
     np.save("success_words", success_words)
     np.save("manual_words", manual_words)
