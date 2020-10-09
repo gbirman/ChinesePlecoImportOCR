@@ -14,6 +14,15 @@ import bisect
 import unidecode
 from string import ascii_uppercase
 
+### CONSTANTS
+filename = "/Users/gabrielbirman/Chinese_OCR/A-New-China-An-Intermediate-Reader-of-Modern-Chinese-Revised-Edition.pdf" # pdf filename
+offset = 18 # represents page num offset (i.e. page number in PDF is index + offset)
+pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
+letters_cache = True # cache the bid to start of each new letter (for custom heuristic)
+doc = fitz.open(filename) # open PDF
+sf = 25/6 # scaling factor between PDF and image
+eps = 1 # adds to bounding box around word
+
 # get total bounding box r1 U r2 
 # assumes bbox has form (x0, y0, x1, y1)
 def union(r1, r2):
@@ -314,16 +323,6 @@ def refine(chars, char_confs, chi_pinyin, eng_pinyin, bid, letters):
     return None # unsuccessful :( 
 
 if __name__ == "__main__":
-
-    ### CONSTANTS
-    filename = "/Users/gabrielbirman/Chinese_OCR/107Textbook.pdf" # pdf filename
-    sf = 25/6 # scaling factor between PDF and image
-    eps = 1 # adds to bounding box around word
-    offset = 18 # represents page num offset (i.e. page number in PDF is index + offset)
-    pagenums = range(445+offset, 471+offset+1) #471+18 (incl.)
-    letters_cache = True # cache the bid to start of each new letter (for custom heuristic)
-
-    doc = fitz.open(filename) # open PDF
 
     # NOTE: PIPELINE 
     # Parsing: parse pdf into word objects with useful metadata, e.g. bounding boxes, page number etc.

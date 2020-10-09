@@ -64,7 +64,7 @@ if __name__=='__main__':
 
     # retrieve words that need to be determined manually
     if os.path.exists("manual_words.npy"):
-        saved_manual = np.load('manual_words.npy', allow_pickle=True)[()]
+        manual_words = np.load('manual_words.npy', allow_pickle=True)[()]
     else:
         print("make sure manual_words.npy exists")
         quit()
@@ -127,7 +127,6 @@ if __name__=='__main__':
                         [sg.Button('Prev'), sg.Button('Next'), sg.Button('OK', bind_return_key=True), sg.Button('Return'), sg.Button('Flag'), sg.Button('Cancel'), sg.Text(remain_string(), key='_REM_')],
                         [sg.Text(toggle_string(), key='_TOGGLE_'), sg.Button('Toggle')],
                         [sg.Multiline(index_string(), key='_IDX_')],
-                        # [sg.Text('')]
             ]
     window = sg.Window('Window', layout)
 
